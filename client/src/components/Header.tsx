@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sprout, 
   MapPin, 
@@ -17,7 +17,13 @@ import {
   BarChart3,
   Calendar,
   AlertTriangle,
-  Lightbulb
+  Lightbulb,
+  LayoutGrid,
+  ChevronDown,
+  UserCheck,
+  FileText,
+  ExternalLink,
+  Sparkles
 } from 'lucide-react';
 import { Language, FarmerProfile } from '../types';
 import { t } from '../translations';
@@ -44,10 +50,23 @@ export const Header: React.FC<HeaderProps> = ({
   setIsDemoMode
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [featuresDropdownOpen, setFeaturesDropdownOpen] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const text = t[language];
 
   const crops = ["Tomato", "Onion", "Chilli", "Cotton", "Rice", "Wheat", "Potato", "Turmeric", "Maize", "Groundnut"];
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setFeaturesDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const detectLocation = () => {
     if (!navigator.geolocation) {
@@ -82,19 +101,64 @@ export const Header: React.FC<HeaderProps> = ({
     );
   };
 
-  const navItems = [
+  const featureGroups = [
+    {
+      groupName: "AI & Diagnostics",
+      groupNameTe: "AI & పంట రక్షణ",
+      items: [
+        { id: 'scanner', path: '/scanner', label: 'AI Crop Health Scanner', labelTe: 'AI పంట స్కానర్', icon: Scan },
+        { id: 'assistant', path: '/assistant', label: 'Telugu AI Assistant', labelTe: 'తెలుగు AI మిత్రుడు', icon: HelpCircle },
+        { id: 'sell-smart', path: '/sell-smart', label: 'Sell Smart Recommendation', labelTe: 'స్మార్ట్ విక్రయ సలహా', icon: ShieldCheck, highlight: true }
+      ]
+    },
+    {
+      groupName: "Market Intelligence",
+      groupNameTe: "మార్కెట్ విశ్లేషణ",
+      items: [
+        { id: 'prices', path: '/prices', label: 'Live Mandi Prices', labelTe: 'ప్రత్యక్ష మార్కెట్ ధరలు', icon: DollarSign },
+        { id: 'trends', path: '/trends', label: 'Price Trends & Volatility', labelTe: 'ధరల ట్రెండ్స్', icon: TrendingUp },
+        { id: 'demand-supply', path: '/demand-supply', label: 'Demand & Supply', labelTe: 'డిమాండ్ & సరఫరా', icon: BarChart3 },
+        { id: 'seasonal', path: '/seasonal', label: 'Seasonal Patterns', labelTe: 'కాలానుగుణ నమూనాలు', icon: Calendar },
+        { id: 'forecast', path: '/forecast', label: 'AI Price Forecast', labelTe: 'ధరల ముందస్తు అంచనా', icon: Lightbulb }
+      ]
+    },
+    {
+      groupName: "Trade & Buyers",
+      groupNameTe: "అమ్మకాలు & కొనుగోలుదారులు",
+      items: [
+        { id: 'buyers', path: '/buyers', label: 'Nearby Buyers & Mandis', labelTe: 'సమీప కొనుగోలుదారులు', icon: Users },
+        { id: 'comparison', path: '/comparison', label: 'Buyer Net Revenue Comparison', labelTe: 'మార్కెట్ల పోలిక', icon: ShieldCheck }
+      ]
+    },
+    {
+      groupName: "Weather & Agronomy",
+      groupNameTe: "వాతావరణం & సాగు",
+      items: [
+        { id: 'weather', path: '/weather', label: 'Hyperlocal Weather', labelTe: 'వాతావరణ సమాచారం', icon: CloudSun },
+        { id: 'crops', path: '/crops', label: 'Crop Agronomic Profiles', labelTe: 'పంటల సమగ్ర సమాచారం', icon: Sprout },
+        { id: 'alerts', path: '/alerts', label: 'Crop Risk Alerts', labelTe: 'రిస్క్ హెచ్చరికలు', icon: AlertTriangle }
+      ]
+    },
+    {
+      groupName: "Platform & Tools",
+      groupNameTe: "సిస్టమ్ & అడ్మిన్",
+      items: [
+        { id: 'dashboard', path: '/dashboard', label: 'Farmer Dashboard', labelTe: 'రైతు డ్యాష్‌బోర్డ్', icon: Compass },
+        { id: 'onboarding', path: '/onboarding', label: 'Farmer Onboarding & GPS', labelTe: 'ప్రొఫైల్ నమోదు', icon: UserCheck },
+        { id: 'sources', path: '/sources', label: 'Verified Data Sources', labelTe: 'అధికారిక వనరులు', icon: FileText },
+        { id: 'admin', path: '/admin', label: 'Admin & System Control', labelTe: 'అడ్మిన్ సెంటర్', icon: Database, admin: true }
+      ]
+    }
+  ];
+
+  const primaryNavItems = [
     { id: 'dashboard', label: text.dashboard, icon: Compass },
     { id: 'scanner', label: text.cropScanner, icon: Scan },
     { id: 'prices', label: text.marketPrices, icon: DollarSign },
     { id: 'trends', label: text.priceTrends, icon: TrendingUp },
-    { id: 'demand-supply', label: text.demandSupply, icon: BarChart3 },
-    { id: 'seasonal', label: text.seasonalPattern, icon: Calendar },
-    { id: 'forecast', label: text.priceForecast, icon: Lightbulb },
     { id: 'buyers', label: text.nearbyBuyers, icon: Users },
-    { id: 'sell-smart', label: text.sellSmart, icon: ShieldCheck, highlight: true },
     { id: 'weather', label: text.weather, icon: CloudSun },
-    { id: 'assistant', label: text.aiAssistant, icon: HelpCircle },
-    { id: 'admin', label: text.adminCenter, icon: Database, admin: true }
+    { id: 'assistant', label: text.aiAssistant, icon: HelpCircle }
   ];
 
   return (
@@ -168,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Crop Selector Bar */}
-        <div className="hidden md:flex items-center gap-2 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1">
+        <div className="hidden lg:flex items-center gap-2 bg-slate-100/90 border border-slate-200/80 rounded-lg px-2.5 py-1">
           <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Crop:</span>
           <select
             value={profile.crop}
@@ -183,7 +247,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Desktop Quick Nav Links */}
         <nav className="hidden xl:flex items-center gap-1">
-          {navItems.slice(0, 8).map((item) => {
+          {primaryNavItems.map((item) => {
             const Icon = item.icon;
             const active = currentView === item.id;
             return (
@@ -192,7 +256,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => setCurrentView(item.id)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
                   active 
-                    ? 'bg-emerald-50 text-emerald-700 font-bold' 
+                    ? 'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' 
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
@@ -201,6 +265,78 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             );
           })}
+
+          {/* ALL 18 PAGES MEGA-DROPDOWN */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setFeaturesDropdownOpen(!featuresDropdownOpen)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                currentView === 'features' || featuresDropdownOpen
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+              }`}
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>{language === 'te' ? "అన్ని పేజీలు (18)" : "All Pages (18)"}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform ${featuresDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {featuresDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-[720px] bg-white rounded-3xl shadow-2xl border border-slate-200 p-6 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+                  <div className="flex items-center gap-2">
+                    <LayoutGrid className="w-4 h-4 text-emerald-600" />
+                    <span className="font-black text-slate-900 text-sm">
+                      {language === 'te' ? "అన్ని ఫీచర్ పేజీల డైరెక్టరీ" : "All 18 Dedicated Feature Pages"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCurrentView('features');
+                      setFeaturesDropdownOpen(false);
+                    }}
+                    className="text-xs font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
+                  >
+                    <span>{language === 'te' ? "డైరెక్టరీ చూడండి" : "View Full Catalog"}</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-6 text-xs">
+                  {featureGroups.map((group, gIdx) => (
+                    <div key={gIdx} className="space-y-2">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block border-b border-slate-100 pb-1">
+                        {language === 'te' ? group.groupNameTe : group.groupName}
+                      </span>
+                      <div className="space-y-1">
+                        {group.items.map((feat) => {
+                          const FeatIcon = feat.icon;
+                          const isActive = currentView === feat.id;
+                          return (
+                            <button
+                              key={feat.id}
+                              onClick={() => {
+                                setCurrentView(feat.id);
+                                setFeaturesDropdownOpen(false);
+                              }}
+                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-left transition font-medium ${
+                                isActive 
+                                  ? 'bg-emerald-600 text-white font-bold' 
+                                  : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-800'
+                              }`}
+                            >
+                              <FeatIcon className={`w-3.5 h-3.5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                              <span className="truncate">{language === 'te' ? feat.labelTe : feat.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </nav>
 
         {/* Action Buttons */}
@@ -224,7 +360,7 @@ export const Header: React.FC<HeaderProps> = ({
                 ? 'bg-slate-900 text-white border-slate-900'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
             }`}
-            title="Open Admin & All Crop Prices Control Center"
+            title="Open Admin & API System Status"
           >
             <Database className="w-3.5 h-3.5 text-emerald-600" />
             <span>{text.adminCenter}</span>
@@ -232,7 +368,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Mobile menu hamburger */}
-        <div className="flex sm:hidden items-center gap-2">
+        <div className="flex xl:hidden items-center gap-2">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-2 rounded-lg text-slate-600 hover:bg-slate-100"
@@ -244,13 +380,13 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="sm:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-6 space-y-2 max-h-[80vh] overflow-y-auto">
-          <div className="mb-3 p-2 bg-slate-50 rounded-lg flex items-center justify-between">
+        <div className="xl:hidden border-t border-slate-200 bg-white px-4 pt-3 pb-8 space-y-4 max-h-[85vh] overflow-y-auto">
+          <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between border border-slate-200">
             <span className="text-xs font-semibold text-slate-600">Selected Crop:</span>
             <select
               value={profile.crop}
               onChange={(e) => setProfile(prev => ({ ...prev, crop: e.target.value }))}
-              className="bg-white border border-slate-200 text-sm font-bold text-emerald-700 rounded px-2 py-1"
+              className="bg-white border border-slate-200 text-sm font-bold text-emerald-700 rounded-lg px-2.5 py-1"
             >
               {crops.map(c => (
                 <option key={c} value={c}>{c}</option>
@@ -258,30 +394,50 @@ export const Header: React.FC<HeaderProps> = ({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-1.5">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const active = currentView === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    setCurrentView(item.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-semibold text-left transition ${
-                    active 
-                      ? 'bg-emerald-600 text-white' 
-                      : item.admin
-                      ? 'bg-slate-900 text-white font-bold'
-                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{item.label}</span>
-                </button>
-              );
-            })}
+          <button
+            onClick={() => {
+              setCurrentView('features');
+              setMobileMenuOpen(false);
+            }}
+            className="w-full py-2.5 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span>{language === 'te' ? "అన్ని 18 ప్రత్యేక పేజీల డైరెక్టరీ" : "All 18 Dedicated Pages Directory"}</span>
+          </button>
+
+          <div className="space-y-4">
+            {featureGroups.map((group, idx) => (
+              <div key={idx} className="space-y-1.5">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block px-1">
+                  {language === 'te' ? group.groupNameTe : group.groupName}
+                </span>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const active = currentView === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setCurrentView(item.id);
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-left transition ${
+                          active 
+                            ? 'bg-emerald-600 text-white font-bold' 
+                            : item.admin
+                            ? 'bg-slate-900 text-white font-bold'
+                            : 'bg-slate-50 text-slate-700 hover:bg-slate-100 border border-slate-200/60'
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{language === 'te' ? item.labelTe : item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -164,6 +164,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ language, setCurrentVi
               <Scan className="w-4 h-4" />
               <span>{text.scanCrop}</span>
             </button>
+
+            <button
+              onClick={() => setCurrentView('features')}
+              className="px-5 py-3.5 rounded-xl bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 font-bold text-sm sm:text-base border border-emerald-500/50 transition flex items-center gap-2 shadow-sm"
+              title="View all 18 dedicated separate feature pages"
+            >
+              <Layers className="w-4 h-4 text-emerald-400" />
+              <span>{language === 'te' ? "అన్ని 18 ప్రత్యేక పేజీలు" : "All 18 Feature Pages"}</span>
+            </button>
           </div>
 
           {/* Trust Highlights */}
@@ -190,15 +199,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({ language, setCurrentVi
 
       {/* Feature Cards Grid */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
-            {language === 'te' ? "రైతుల కోసం సమగ్ర మేధస్సు మాడ్యూల్స్" : "Comprehensive Agricultural Intelligence"}
-          </h2>
-          <p className="text-sm sm:text-base text-slate-600">
-            {language === 'te' 
-              ? "పంట విత్తిన నాటి నుండి మార్కెట్లో ఉత్తమ ధరకు విక్రయించే వరకు ప్రతి అడుగులోనూ AI తోడ్పాటు."
-              : "Built for smallholder farmers, agribusinesses, and FPOs. Click any card below to test drive the live module."}
-          </p>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-12">
+          <div className="max-w-3xl space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600">
+              {language === 'te' ? "ప్రత్యేక మాడ్యూల్స్" : "Dedicated Standalone Pages"}
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
+              {language === 'te' ? "రైతుల కోసం సమగ్ర మేధస్సు మాడ్యూల్స్" : "Comprehensive Agricultural Intelligence"}
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600">
+              {language === 'te' 
+                ? "ప్రతి ఫీచర్‌కు దాని సొంత ప్రత్యేకా పేజీ మరియు ప్రత్యక్ష డేటా కలదు. ఏదైనా కార్డు క్లిక్ చేసి ఆ పేజీని నేరుగా తెరవండి."
+                : "Every feature operates on its own dedicated page with live verified APIs. Click any card below to launch that specific page."}
+            </p>
+          </div>
+
+          <button
+            onClick={() => setCurrentView('features')}
+            className="flex-shrink-0 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-2 shadow-sm transition"
+          >
+            <Layers className="w-4 h-4" />
+            <span>{language === 'te' ? "అన్ని 18 ప్రత్యేక పేజీల జాబితా" : "View All 18 Pages Catalog →"}</span>
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -215,9 +237,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ language, setCurrentVi
                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-tr ${feat.color} text-white flex items-center justify-center shadow-md group-hover:scale-110 transition duration-300`}>
                       <Icon className="w-6 h-6" />
                     </div>
-                    <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                      {feat.badge}
-                    </span>
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 block">
+                        {feat.badge}
+                      </span>
+                      <span className="font-mono text-[9px] text-emerald-700 font-bold block mt-1">
+                        /{feat.id}
+                      </span>
+                    </div>
                   </div>
 
                   <h3 className="text-base font-bold text-slate-900 group-hover:text-emerald-700 transition mb-2">
@@ -230,7 +257,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ language, setCurrentVi
                 </div>
 
                 <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-emerald-600 group-hover:text-emerald-700">
-                  <span>{language === 'te' ? "వివరాలు చూడండి" : "Explore Module"}</span>
+                  <span>{language === 'te' ? "ఈ పేజీ తెరవండి" : "Open Dedicated Page"}</span>
                   <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition" />
                 </div>
               </div>
