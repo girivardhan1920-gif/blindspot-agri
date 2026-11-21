@@ -19,7 +19,13 @@ import {
   Sprout,
   HelpCircle,
   TrendingDown,
-  DollarSign
+  DollarSign,
+  Share2,
+  ShoppingBag,
+  Droplet,
+  Clock,
+  Check,
+  Copy
 } from 'lucide-react';
 import { Language, ScanResult } from '../types';
 import { t } from '../translations';
@@ -37,6 +43,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
   const [result, setResult] = useState<ScanResult | null>(null);
   const [history, setHistory] = useState<ScanResult[]>([]);
   const [speaking, setSpeaking] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [solutionTab, setSolutionTab] = useState<'chemical' | 'organic' | 'cultural' | 'nutrition'>('chemical');
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -173,7 +180,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
     };
   }, [result, imagePreview]);
 
-  // Read solutions aloud (TTS)
+  // Read solutions aloud (TTS) in plain language
   const toggleSpeech = () => {
     if (!('speechSynthesis' in window) || !result) return;
     if (speaking) {
@@ -182,13 +189,21 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
       return;
     }
 
-    const diseaseText = language === 'te' 
-      ? `పంటలో సమస్య గుర్తించబడింది: ${result.possibleDiseaseTe}. దీనికి నివారణ: ${result.solutions?.immediateChemical?.[0]?.nameTe || ''}. ${result.solutions?.immediateChemical?.[0]?.dosageTe || ''}.`
-      : `Problem diagnosed: ${result.possibleDisease}. Recommended treatment: Spray ${result.solutions?.immediateChemical?.[0]?.name || result.recommendedSteps?.[0]} at recommended dosage.`;
+    const simpleText = language === 'te' 
+      ? (result.simpleExplanationTe || `పంటలో సమస్య: ${result.possibleDiseaseTe}.`)
+      : (result.simpleExplanation || `Problem diagnosed: ${result.possibleDisease}.`);
 
-    const utterance = new SpeechSynthesisUtterance(diseaseText);
+    const productText = result.suggestedProducts?.[0]
+      ? (language === 'te'
+          ? `సిఫార్సు చేసిన మందు: ${result.suggestedProducts[0].brandName}. మోతాదు: ${result.suggestedProducts[0].dosePerPumpTe || result.suggestedProducts[0].dosePerPump}.`
+          : `Recommended medicine: ${result.suggestedProducts[0].brandName}. Dose: ${result.suggestedProducts[0].dosePerPump}.`)
+      : (result.solutions?.immediateChemical?.[0]?.name ? `Spray ${result.solutions.immediateChemical[0].name}.` : '');
+
+    const speechText = `${simpleText} ${productText}`;
+
+    const utterance = new SpeechSynthesisUtterance(speechText);
     utterance.lang = language === 'te' ? 'te-IN' : 'en-IN';
-    utterance.rate = 0.95;
+    utterance.rate = 0.92;
     utterance.onend = () => setSpeaking(false);
     utterance.onerror = () => setSpeaking(false);
 
@@ -200,6 +215,46 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
     window.print();
   };
 
+  const shareToWhatsApp = () => {
+    if (!result) return;
+    const cropName = language === 'te' ? result.cropTe : result.crop;
+    const diseaseName = language === 'te' ? result.possibleDiseaseTe : result.possibleDisease;
+    let msg = `🌱 *BlindSpot Agri - పంట సమస్య & మందుల ప్రిస్క్రిప్షన్*\n`;
+    msg += `🌾 *పంట (Crop):* ${cropName}\n`;
+    msg += `⚠️ *గుర్తించిన సమస్య:* ${diseaseName}\n`;
+    if (result.simpleExplanationTe || result.simpleExplanation) {
+      msg += `📋 *వివరాలు:* ${language === 'te' && result.simpleExplanationTe ? result.simpleExplanationTe : result.simpleExplanation}\n\n`;
+    }
+    msg += `🎒 *స్ప్రే పంపు ప్రమాణం:* 16 లీటర్ల నీటి పంపు (ఎకరాకు 8-10 పంపులు)\n\n`;
+    msg += `🛒 *షాపులో అడగాల్సిన మందులు (Recommended Products):*\n`;
+    (result.suggestedProducts || []).forEach((prod, idx) => {
+      msg += `${idx + 1}. *${prod.brandName}* (${prod.genericName})\n`;
+      msg += `   - మోతాదు: ${language === 'te' && prod.dosePerPumpTe ? prod.dosePerPumpTe : prod.dosePerPump}\n`;
+      msg += `   - అందాజు ధర: ${prod.approxPrice}\n`;
+      if (prod.instructionsTe || prod.instructions) {
+        msg += `   - సూచన: ${language === 'te' && prod.instructionsTe ? prod.instructionsTe : prod.instructions}\n`;
+      }
+      msg += `\n`;
+    });
+    msg += `⚠️ గమనిక: కొనుగోలు చేయడానికి ముందు స్థానిక రైతు భరోసా కేంద్రం (RBK/KVK) లేదా వ్యవసాయ అధికారిని సంప్రదించండి.`;
+
+    const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+    window.open(url, '_blank');
+  };
+
+  const copyPrescription = () => {
+    if (!result) return;
+    const cropName = language === 'te' ? result.cropTe : result.crop;
+    const diseaseName = language === 'te' ? result.possibleDiseaseTe : result.possibleDisease;
+    let msg = `BlindSpot Agri - Crop Prescription: ${cropName} - ${diseaseName}\n`;
+    (result.suggestedProducts || []).forEach((prod, idx) => {
+      msg += `${idx + 1}. ${prod.brandName} (${prod.genericName}) | Dose: ${prod.dosePerPump}\n`;
+    });
+    navigator.clipboard.writeText(msg);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
@@ -207,15 +262,15 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
         <div>
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-600 uppercase tracking-wider mb-1">
             <Scan className="w-4 h-4" />
-            <span>Computer Vision Pathology & Remedy Protocol</span>
+            <span>AI Pathology & Commercial Remedies</span>
           </div>
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
-            {language === 'te' ? "AI పంట ఆరోగ్య స్కానర్ & సమస్యల నివారణ పరిష్కారాలు" : "AI Crop Health Scanner & Related Solutions"}
+            {language === 'te' ? "AI పంట ఆరోగ్య స్కానర్ & పరిష్కార మందులు" : "AI Crop Health Scanner & Related Solutions"}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
             {language === 'te'
-              ? "ఆకు చిత్రాన్ని స్కాన్ చేసి తెగులును గుర్తించండి. వెంటనే సంబంధిత రసాయన, సేంద్రీయ మరియు సాగు నివారణ పరిష్కారాలను పొందండి."
-              : "Upload a crop leaf photograph to identify the exact problem, detect lesions, and receive verified chemical, organic, and agronomic solutions."}
+              ? "ఆకు చిత్రాన్ని స్కాన్ చేయండి. సమస్యను సులభంగా అర్థం చేసుకుని, షాపులో లభించే సరైన మందులు మరియు 16 లీటర్ల పంపు మోతాదును పొందండి."
+              : "Upload a crop leaf photograph to identify the exact problem, understand it in plain language, and get commercial product recommendations with exact 16L spray pump dosages."}
           </p>
         </div>
 
@@ -227,11 +282,12 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
             onChange={(e) => setSelectedCrop(e.target.value)}
             className="bg-white border border-slate-300 text-xs font-bold text-emerald-700 rounded-lg px-2.5 py-1.5 focus:outline-none"
           >
-            <option value="Tomato">Tomato</option>
-            <option value="Chilli">Chilli</option>
-            <option value="Cotton">Cotton</option>
-            <option value="Rice">Rice / Paddy</option>
-            <option value="Onion">Onion</option>
+            <option value="Tomato">Tomato (టమాటా)</option>
+            <option value="Chilli">Chilli (మిరప)</option>
+            <option value="Cotton">Cotton (పత్తి)</option>
+            <option value="Rice">Rice / Paddy (వరి)</option>
+            <option value="Onion">Onion (ఉల్లి)</option>
+            <option value="Maize">Maize (మొక్కజొన్న)</option>
           </select>
         </div>
       </div>
@@ -273,7 +329,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                 <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center text-white space-y-2">
                   <RefreshCw className="w-8 h-8 text-emerald-400 animate-spin" />
                   <p className="text-sm font-bold">Scanning leaf with Vision AI...</p>
-                  <p className="text-xs text-slate-400">Identifying problem & calculating remediation dosage...</p>
+                  <p className="text-xs text-slate-400">Diagnosing problem & calculating exact 16L pump dosage...</p>
                 </div>
               )}
             </div>
@@ -358,6 +414,61 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                   </div>
                 </div>
 
+                {/* Plain-Language Farmer Explanation Banner */}
+                {(result.simpleExplanation || result.simpleExplanationTe) && (
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border-2 border-emerald-400 shadow-sm space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+                        💡
+                      </span>
+                      <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                        {language === 'te' ? "రైతు కోసం సులభమైన వివరణ (సమస్య ఏమిటి?)" : "Farmer-Friendly Problem Summary (What Happened?)"}
+                      </h3>
+                    </div>
+                    <p className="text-sm text-emerald-950 font-bold leading-relaxed">
+                      {language === 'te' && result.simpleExplanationTe ? result.simpleExplanationTe : result.simpleExplanation}
+                    </p>
+                    {language !== 'te' && result.simpleExplanationTe && (
+                      <p className="text-xs text-emerald-800 font-medium italic pt-1 border-t border-emerald-200/60">
+                        తెలుగు: {result.simpleExplanationTe}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* 16-Liter Spray Pump Measurement Guide */}
+                <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🎒</span>
+                      <h4 className="text-xs font-black text-blue-950 uppercase tracking-wider">
+                        {language === 'te' ? "16 లీటర్ల స్ప్రే పంపు కొలత మార్గదర్శి" : "Standard 16-Liter Knapsack Sprayer Guide"}
+                      </h4>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px]">
+                      1 Pump = 16L Water
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 flex flex-col justify-between">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase">Standard Tank</span>
+                      <span className="font-bold text-slate-900 mt-1">16-Liter Knapsack (1 పంపు)</span>
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 flex flex-col justify-between">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase">Acre Coverage</span>
+                      <span className="font-bold text-slate-900 mt-1">
+                        {result.pumpSpecs?.pumpsPerAcre || "8 to 10 pumps / acre"}
+                      </span>
+                    </div>
+                    <div className="bg-white/90 p-2.5 rounded-xl border border-blue-100 flex flex-col justify-between">
+                      <span className="text-[10px] font-bold text-blue-600 uppercase">Best Spraying Time</span>
+                      <span className="font-bold text-slate-900 mt-1">
+                        {language === 'te' && result.pumpSpecs?.bestSprayingTimeTe ? result.pumpSpecs.bestSprayingTimeTe : (result.pumpSpecs?.bestSprayingTime || "Early Morning")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Root Cause & Impact Metrics */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200 space-y-1">
@@ -400,16 +511,134 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                 </div>
               </div>
 
-              {/* DEDICATED RELATED SOLUTIONS PROTOCOL SUITE */}
-              <div className="bg-white rounded-3xl p-6 border-2 border-emerald-500/40 shadow-lg space-y-5">
+              {/* COMMERCIAL RECOMMENDED PRODUCTS (FARMER MARKET SOLUTION) */}
+              {result.suggestedProducts && result.suggestedProducts.length > 0 && (
+                <div className="bg-white rounded-3xl p-6 border-2 border-emerald-500/50 shadow-lg space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="w-5 h-5 text-emerald-600" />
+                        <h3 className="text-lg font-black text-slate-900">
+                          {language === 'te' ? "షాపులో అడగాల్సిన సిఫార్సు మందులు" : "Recommended Products to Buy at Agro-Shop"}
+                        </h3>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {language === 'te' 
+                          ? "ఈ మందులు స్థానిక ఆర్బీకే / ఫెర్టిలైజర్ దుకాణాల్లో సులభంగా లభిస్తాయి. 16 లీటర్ల పంపు మోతాదులో మాత్రమే వాడండి."
+                          : "Commercially available formulations. Always use exact dosage per 16-Liter spray pump."}
+                      </p>
+                    </div>
+
+                    {/* WhatsApp Share & Copy */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={shareToWhatsApp}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-md transition"
+                        title="Send medicine list to shopkeeper on WhatsApp"
+                      >
+                        <Share2 className="w-3.5 h-3.5" />
+                        <span>{language === 'te' ? "షాపుకు WhatsApp చేయండి" : "Share via WhatsApp"}</span>
+                      </button>
+
+                      <button
+                        onClick={copyPrescription}
+                        className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1.5 transition"
+                        title="Copy list"
+                      >
+                        {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-600" />}
+                        <span>{copied ? "Copied" : "Copy"}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Product Cards */}
+                  <div className="grid grid-cols-1 gap-3.5">
+                    {result.suggestedProducts.map((prod, pIdx) => (
+                      <div 
+                        key={prod.id || pIdx} 
+                        className="p-4 rounded-2xl bg-gradient-to-br from-white to-slate-50/50 border border-slate-200/90 hover:border-emerald-400 hover:shadow-md transition space-y-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                {prod.badge || "Verified Product"}
+                              </span>
+                              <span className="text-xs text-slate-400">•</span>
+                              <span className="text-xs font-semibold text-slate-500">{prod.company}</span>
+                              <span className="text-xs text-slate-400">•</span>
+                              <span className="text-[11px] font-medium text-slate-400">{prod.category}</span>
+                            </div>
+
+                            <h4 className="text-base font-black text-slate-900">
+                              {prod.brandName}
+                            </h4>
+
+                            <p className="text-xs text-slate-600 font-medium">
+                              Active Ingredient: <span className="font-bold text-slate-800">{prod.genericName}</span>
+                            </p>
+                          </div>
+
+                          <div className="text-right">
+                            <span className="inline-block px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-200">
+                              {prod.approxPrice}
+                            </span>
+                            <span className="block text-[10px] text-slate-400 mt-0.5">Approx. Price in Shop</span>
+                          </div>
+                        </div>
+
+                        {/* Dosage Callout */}
+                        <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center gap-2.5">
+                          <Droplet className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                          <div className="text-xs">
+                            <strong className="text-emerald-950 font-black">16 లీటర్ల పంపు మోతాదు (Exact Dose per 16L Pump): </strong>
+                            <span className="font-black text-emerald-900 bg-white px-2 py-0.5 rounded border border-emerald-300 ml-1">
+                              {language === 'te' && prod.dosePerPumpTe ? prod.dosePerPumpTe : prod.dosePerPump}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* How to spray instructions */}
+                        {(prod.instructions || prod.instructionsTe) && (
+                          <p className="text-xs text-slate-600 leading-relaxed pl-1">
+                            <strong>{language === 'te' ? "రైతు సూచన (Instructions): " : "Spraying Instruction: "}</strong>
+                            {language === 'te' && prod.instructionsTe ? prod.instructionsTe : prod.instructions}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Practical Spraying Tips */}
+                  {result.practicalTips && result.practicalTips.length > 0 && (
+                    <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2 mt-2">
+                      <h5 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-amber-700" />
+                        <span>{language === 'te' ? "రైతు పాటించవలసిన ముఖ్య సూచనలు" : "Practical Spraying Rules for Best Results"}</span>
+                      </h5>
+                      <ul className="space-y-1.5 text-xs text-amber-900 font-medium">
+                        {(language === 'te' && result.practicalTipsTe ? result.practicalTipsTe : result.practicalTips).map((tip, tIdx) => (
+                          <li key={tIdx} className="flex items-start gap-2">
+                            <span className="text-amber-700 font-bold">•</span>
+                            <span>{tip}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ADVANCED SCIENTIFIC TREATMENT PROTOCOL (OPTIONAL TABS) */}
+              <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-5">
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
                   <div>
-                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">
-                      Prescription & Action Plan
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Detailed Agronomic Protocols
                     </span>
-                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                      <FlaskConical className="w-5 h-5 text-emerald-600" />
-                      <span>{language === 'te' ? "ఈ సమస్యకు పరిష్కారాలు (Related Solutions)" : "Related Solutions & Treatment Protocol"}</span>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <FlaskConical className="w-4 h-4 text-emerald-600" />
+                      <span>{language === 'te' ? "వివరణాత్మక చికిత్స మార్గాలు (Advanced Protocols)" : "Alternative Management Protocols"}</span>
                     </h3>
                   </div>
 
@@ -444,7 +673,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                     }`}
                   >
                     <FlaskConical className="w-3.5 h-3.5" />
-                    <span>{language === 'te' ? "రసాయన నివారణ (Fast Action)" : "Fast-Action Chemical"}</span>
+                    <span>{language === 'te' ? "రసాయన నివారణ (Chemical)" : "Fast Chemical"}</span>
                   </button>
 
                   <button
@@ -454,7 +683,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                     }`}
                   >
                     <Sprout className="w-3.5 h-3.5" />
-                    <span>{language === 'te' ? "సేంద్రీయ పద్ధతులు (Organic)" : "Organic & Bio-Control"}</span>
+                    <span>{language === 'te' ? "సేంద్రీయ పద్ధతులు (Organic)" : "Organic & Bio"}</span>
                   </button>
 
                   <button
@@ -463,7 +692,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                       solutionTab === 'cultural' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>{language === 'te' ? "సాగు పద్ధతులు (Cultural)" : "Agronomic Field Care"}</span>
+                    <span>{language === 'te' ? "సాగు పద్ధతులు (Cultural)" : "Field Care"}</span>
                   </button>
 
                   <button
@@ -472,7 +701,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                       solutionTab === 'nutrition' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>{language === 'te' ? "పోషకాల రికవరీ (Nutrition)" : "Soil & Plant Recovery"}</span>
+                    <span>{language === 'te' ? "పోషకాల రికవరీ (Nutrition)" : "Soil & Recovery"}</span>
                   </button>
                 </div>
 
@@ -581,7 +810,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex items-start gap-2.5">
                   <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                   <span>
-                    <strong>Medical & Advisory Disclaimer:</strong> {result.disclaimer} Always verify with your local agricultural officer / Krishi Vigyan Kendra (KVK).
+                    <strong>Advisory Disclaimer:</strong> {result.disclaimer} Always verify with your local agricultural officer / Rythu Seva Kendra (RBK/KVK) before chemical application.
                   </span>
                 </div>
               </div>
@@ -626,7 +855,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
               </div>
               <p className="text-slate-800 font-bold">{h.possibleDisease}</p>
               <p className="text-[11px] text-slate-600 line-clamp-2">
-                <strong>Solution:</strong> {h.solutions?.immediateChemical?.[0]?.name || h.recommendedSteps?.[0]}
+                <strong>Solution:</strong> {h.suggestedProducts?.[0]?.brandName || h.solutions?.immediateChemical?.[0]?.name || h.recommendedSteps?.[0]}
               </p>
             </div>
           ))}

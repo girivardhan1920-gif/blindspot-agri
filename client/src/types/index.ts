@@ -86,6 +86,27 @@ export interface WeatherData {
   }>;
 }
 
+export interface ProductRecommendation {
+  id: string;
+  brandName: string;
+  genericName: string;
+  company: string;
+  badge: string;
+  category: string;
+  dosePerPump: string;
+  dosePerPumpTe?: string;
+  approxPrice: string;
+  instructions: string;
+  instructionsTe?: string;
+}
+
+export interface PumpSpecs {
+  standardPumpSize: string;
+  pumpsPerAcre: string;
+  bestSprayingTime: string;
+  bestSprayingTimeTe?: string;
+}
+
 export interface ScanResult {
   id: string;
   crop: string;
@@ -97,12 +118,18 @@ export interface ScanResult {
   severity: 'Low' | 'Medium' | 'High';
   confidence: number;
   affectedRegion: string;
+  simpleExplanation?: string;
+  simpleExplanationTe?: string;
   rootCause?: string;
   rootCauseTe?: string;
   yieldRisk?: string;
   yieldRiskTe?: string;
   treatmentCostEst?: string;
   treatmentCostEstTe?: string;
+  pumpSpecs?: PumpSpecs;
+  suggestedProducts?: ProductRecommendation[];
+  practicalTips?: string[];
+  practicalTipsTe?: string[];
   boundingBoxes: Array<{
     label: string;
     ymin: number;
