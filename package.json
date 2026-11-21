@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node server/src/index.js",
-    "build": "npm --prefix client install && npm --prefix client run build",
-    "build:client": "npm --prefix client install && npm --prefix client run build",
+    "build": "npm --prefix client install && npm --prefix client run build && node scripts/copy-dist.js",
+    "build:client": "npm --prefix client install && npm --prefix client run build && node scripts/copy-dist.js",
     "install:all": "npm install && npm --prefix server install && npm --prefix client install",
     "dev:server": "node --watch server/src/index.js",
     "dev:client": "npm --prefix client run dev"

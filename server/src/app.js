@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { config } from './config.js';
 import { fetchLiveWeather } from './services/weatherService.js';
@@ -27,7 +28,9 @@ import { CROP_PROFILES } from './data/cropProfiles.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const clientDistPath = path.resolve(__dirname, '../../client/dist');
+const clientDistPath = fs.existsSync(path.resolve(__dirname, '../../dist/index.html'))
+  ? path.resolve(__dirname, '../../dist')
+  : path.resolve(__dirname, '../../client/dist');
 
 const app = express();
 const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } });
