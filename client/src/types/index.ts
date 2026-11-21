@@ -185,6 +185,14 @@ export interface BuyerOption {
   estimatedNetRevenue: number;
   netReturnPerQuintal: number;
   marketChargesPct: number;
+  rating?: number;
+  reviewCount?: number;
+  paymentSpeed?: string;
+  paymentSpeedTe?: string;
+  weighingTransparency?: string;
+  weighingTransparencyTe?: string;
+  topFarmerReview?: string;
+  topFarmerReviewTe?: string;
   contact: string;
   source: string;
 }

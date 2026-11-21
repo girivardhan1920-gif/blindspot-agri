@@ -3,47 +3,36 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { PageBreadcrumb } from './components/PageBreadcrumb';
 import { LandingPage } from './pages/LandingPage';
-import { FeaturesDirectoryPage } from './pages/FeaturesDirectoryPage';
-import { OnboardingPage } from './pages/OnboardingPage';
+import { FarmerProfilePage } from './pages/FarmerProfilePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { CropScannerPage } from './pages/CropScannerPage';
 import { WeatherPage } from './pages/WeatherPage';
 import { MarketPricesPage } from './pages/MarketPricesPage';
-import { PriceTrendsPage } from './pages/PriceTrendsPage';
-import { DemandSupplyPage } from './pages/DemandSupplyPage';
 import { SeasonalPage } from './pages/SeasonalPage';
-import { PriceForecastPage } from './pages/PriceForecastPage';
 import { NearbyMarketsPage } from './pages/NearbyMarketsPage';
 import { BuyerComparisonPage } from './pages/BuyerComparisonPage';
 import { SellSmartPage } from './pages/SellSmartPage';
 import { AiAssistantPage } from './pages/AiAssistantPage';
 import { CropProfilesPage } from './pages/CropProfilesPage';
-import { AlertsPage } from './pages/AlertsPage';
-import { DataSourcesPage } from './pages/DataSourcesPage';
 import { AdminPage } from './pages/AdminPage';
 import { FarmerProfile, Language } from './types';
 
+// Clean route mapping matching the user's explicit features
 const pathToViewMap: Record<string, string> = {
   '/': 'landing',
   '/landing': 'landing',
-  '/features': 'features',
-  '/all-features': 'features',
-  '/onboarding': 'onboarding',
   '/dashboard': 'dashboard',
+  '/profile': 'profile',
+  '/farmer-profile': 'profile',
+  '/onboarding': 'profile',
   '/scanner': 'scanner',
   '/crop-scanner': 'scanner',
   '/prices': 'prices',
   '/market-prices': 'prices',
-  '/trends': 'trends',
-  '/price-trends': 'trends',
-  '/demand-supply': 'demand-supply',
   '/seasonal': 'seasonal',
-  '/seasonal-patterns': 'seasonal',
-  '/forecast': 'forecast',
-  '/price-forecast': 'forecast',
+  '/seasonal-analysis': 'seasonal',
   '/buyers': 'buyers',
   '/nearby-buyers': 'buyers',
-  '/nearby-markets': 'buyers',
   '/comparison': 'comparison',
   '/buyer-comparison': 'comparison',
   '/sell-smart': 'sell-smart',
@@ -53,32 +42,22 @@ const pathToViewMap: Record<string, string> = {
   '/ai-assistant': 'assistant',
   '/crops': 'crops',
   '/crop-profiles': 'crops',
-  '/alerts': 'alerts',
-  '/crop-alerts': 'alerts',
-  '/sources': 'sources',
-  '/data-sources': 'sources',
   '/admin': 'admin'
 };
 
 const viewToPathMap: Record<string, string> = {
   landing: '/',
-  features: '/features',
-  onboarding: '/onboarding',
   dashboard: '/dashboard',
+  profile: '/profile',
   scanner: '/scanner',
   prices: '/prices',
-  trends: '/trends',
-  'demand-supply': '/demand-supply',
   seasonal: '/seasonal',
-  forecast: '/forecast',
   buyers: '/buyers',
   comparison: '/comparison',
   'sell-smart': '/sell-smart',
   weather: '/weather',
   assistant: '/assistant',
   crops: '/crops',
-  alerts: '/alerts',
-  sources: '/sources',
   admin: '/admin'
 };
 
@@ -100,19 +79,25 @@ export const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en');
   const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
 
-  // Default farmer profile (Tomato in Telangana / AP belt)
-  const [profile, setProfile] = useState<FarmerProfile>({
-    name: "Ramesh Reddy",
-    state: "Telangana",
-    district: "Hyderabad",
-    village: "Shamirpet Rural",
-    crop: "Tomato",
-    farmSizeAcres: 3.5,
-    quantityAvailableQuintals: 25,
-    language: "en",
-    latitude: 17.385,
-    longitude: 78.486,
-    hasLocationPermission: true
+  // Load initial profile from localStorage if exists
+  const [profile, setProfile] = useState<FarmerProfile>(() => {
+    try {
+      const saved = localStorage.getItem('blindspot_farmer_profile');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      name: "Ramesh Reddy",
+      state: "Telangana",
+      district: "Hyderabad",
+      village: "Shamirpet Rural",
+      crop: "Tomato",
+      farmSizeAcres: 3.5,
+      quantityAvailableQuintals: 25,
+      language: "en",
+      latitude: 17.385,
+      longitude: 78.486,
+      hasLocationPermission: true
+    };
   });
 
   // Navigate function that updates state and synchronizes browser URL
@@ -144,24 +129,18 @@ export const App: React.FC = () => {
   useEffect(() => {
     const pageTitles: Record<string, string> = {
       landing: "BlindSpot Agri — AI-Powered Agriculture Intelligence Platform",
-      features: "All 18 Dedicated Pages Directory — BlindSpot Agri",
-      onboarding: "Farmer Onboarding & GPS Setup — BlindSpot Agri",
-      dashboard: "Farmer Daily Cockpit & Summary — BlindSpot Agri",
+      dashboard: "Farmer Daily Cockpit — BlindSpot Agri",
+      profile: "Farmer Profile & Holdings — BlindSpot Agri",
       scanner: "AI Crop Health Scanner & Spray Guide — BlindSpot Agri",
       prices: "Live APMC Mandi Market Prices — BlindSpot Agri",
-      trends: "Historical Price Trends & Volatility — BlindSpot Agri",
-      'demand-supply': "Demand & Supply Arrival Analytics — BlindSpot Agri",
-      seasonal: "Seasonal Monthly Price Patterns — BlindSpot Agri",
-      forecast: "AI Market Price Forecasting — BlindSpot Agri",
-      buyers: "Nearby Buyers & Mandis Discovery — BlindSpot Agri",
-      comparison: "Buyer Net Revenue & Transport Comparison — BlindSpot Agri",
+      seasonal: "Seasonal Analysis & Monthly Patterns — BlindSpot Agri",
+      buyers: "Nearby Buyers & Mandis (With Ratings) — BlindSpot Agri",
+      comparison: "Buyer Net Revenue & Logistics Comparison — BlindSpot Agri",
       'sell-smart': "Smart Selling Recommendation Verdict — BlindSpot Agri",
-      weather: "Hyperlocal Weather Intelligence & Alerts — BlindSpot Agri",
+      weather: "Weather Intelligence & Crop Risks — BlindSpot Agri",
       assistant: "Telugu AI Farmer Assistant (రైతు మిత్రుడు) — BlindSpot Agri",
       crops: "Agronomic Crop Cultivation Profiles — BlindSpot Agri",
-      alerts: "Real-Time Crop Risk Notifications — BlindSpot Agri",
-      sources: "Verified Government Data Sources & Audit — BlindSpot Agri",
-      admin: "Admin & API Status Control Center — BlindSpot Agri"
+      admin: "Owner Admin Console (Only Me) — BlindSpot Agri"
     };
 
     document.title = pageTitles[currentView] || "BlindSpot Agri";
@@ -171,18 +150,6 @@ export const App: React.FC = () => {
     switch (currentView) {
       case 'landing':
         return <LandingPage language={language} setCurrentView={setCurrentView} />;
-      case 'features':
-        return <FeaturesDirectoryPage language={language} setCurrentView={setCurrentView} />;
-      case 'onboarding':
-        return (
-          <OnboardingPage 
-            language={language} 
-            setLanguage={setLanguage} 
-            profile={profile} 
-            setProfile={setProfile} 
-            onComplete={() => setCurrentView('dashboard')} 
-          />
-        );
       case 'dashboard':
         return (
           <DashboardPage 
@@ -192,18 +159,21 @@ export const App: React.FC = () => {
             isDemoMode={isDemoMode}
           />
         );
+      case 'profile':
+        return (
+          <FarmerProfilePage 
+            language={language}
+            setLanguage={setLanguage}
+            profile={profile}
+            setProfile={setProfile}
+          />
+        );
       case 'scanner':
         return <CropScannerPage language={language} cropHint={profile.crop} />;
       case 'prices':
         return <MarketPricesPage language={language} initialCrop={profile.crop} />;
-      case 'trends':
-        return <PriceTrendsPage language={language} crop={profile.crop} />;
-      case 'demand-supply':
-        return <DemandSupplyPage language={language} crop={profile.crop} />;
       case 'seasonal':
         return <SeasonalPage language={language} crop={profile.crop} />;
-      case 'forecast':
-        return <PriceForecastPage language={language} crop={profile.crop} />;
       case 'buyers':
         return (
           <NearbyMarketsPage 
@@ -254,17 +224,6 @@ export const App: React.FC = () => {
         );
       case 'crops':
         return <CropProfilesPage language={language} initialCrop={profile.crop} />;
-      case 'alerts':
-        return (
-          <AlertsPage 
-            language={language} 
-            crop={profile.crop} 
-            latitude={profile.latitude} 
-            longitude={profile.longitude} 
-          />
-        );
-      case 'sources':
-        return <DataSourcesPage language={language} />;
       case 'admin':
         return (
           <AdminPage 

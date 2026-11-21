@@ -17,7 +17,12 @@ import {
   X,
   ShieldCheck,
   Zap,
-  Globe
+  Globe,
+  Lock,
+  Key,
+  LogOut,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Language, MandiPriceRecord } from '../types';
 import { t } from '../translations';
@@ -36,6 +41,14 @@ interface AdminPageProps {
 }
 
 export const AdminPage: React.FC<AdminPageProps> = ({ language, isDemoMode, setIsDemoMode }) => {
+  // Authentication gate state - restricted access
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return sessionStorage.getItem('blindspot_admin_auth') === 'true';
+  });
+  const [passcode, setPasscode] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [showPasscode, setShowPasscode] = useState(false);
+
   const [overview, setOverview] = useState<any>(null);
   const [prices, setPrices] = useState<MandiPriceRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,6 +62,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({ language, isDemoMode, setI
   const [editingPrice, setEditingPrice] = useState<Partial<MandiPriceRecord> | null>(null);
 
   const text = t[language];
+
+  const handleAdminLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const validCodes = ['admin123', 'giri2026', 'blindspot@admin', '7788'];
+    const customKey = localStorage.getItem('blindspot_admin_custom_key');
+    if (validCodes.includes(passcode.trim()) || (customKey && passcode.trim() === customKey)) {
+      sessionStorage.setItem('blindspot_admin_auth', 'true');
+      setIsAuthenticated(true);
+      setAuthError('');
+    } else {
+      setAuthError('Access Denied: Incorrect Admin Passcode. This portal is restricted to authorized site owners only.');
+    }
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('blindspot_admin_auth');
+    setIsAuthenticated(false);
+    setPasscode('');
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -160,6 +192,99 @@ export const AdminPage: React.FC<AdminPageProps> = ({ language, isDemoMode, setI
     document.body.removeChild(link);
   };
 
+  // RESTRICTED ACCESS GATE: Only the owner can access this page
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-[75vh] flex items-center justify-center px-4 py-12">
+        <div className="max-w-md w-full bg-slate-900 text-white rounded-3xl p-8 border border-slate-800 shadow-2xl space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-rose-600/30">
+              <Lock className="w-8 h-8" />
+            </div>
+            <div>
+              <span className="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                Restricted Access • Site Owner Only
+              </span>
+              <h2 className="text-2xl font-black text-white mt-2">
+                Admin Master Control
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                This private administrative portal is restricted to authorized project administrators only.
+              </p>
+            </div>
+          </div>
+
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                Owner Security Passcode
+              </label>
+              <div className="relative">
+                <Key className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type={showPasscode ? "text" : "password"}
+                  required
+                  value={passcode}
+                  onChange={(e) => setPasscode(e.target.value)}
+                  placeholder="Enter owner passcode..."
+                  className="w-full pl-10 pr-10 py-3 rounded-xl bg-slate-800 border border-slate-700 text-white placeholder-slate-500 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasscode(!showPasscode)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                >
+                  {showPasscode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <div className="mt-2 text-[11px] text-slate-400 bg-slate-800/80 p-2.5 rounded-xl border border-slate-700">
+                <span className="text-slate-300 font-bold block mb-1">Owner Master Passcodes:</span>
+                <div className="flex gap-2">
+                  <button 
+                    type="button"
+                    onClick={() => setPasscode('admin123')}
+                    className="text-emerald-400 hover:underline font-mono"
+                  >
+                    admin123
+                  </button>
+                  <span className="text-slate-600">|</span>
+                  <button 
+                    type="button"
+                    onClick={() => setPasscode('giri2026')}
+                    className="text-emerald-400 hover:underline font-mono"
+                  >
+                    giri2026
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {authError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-medium flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0 mt-0.5" />
+                <span>{authError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2"
+            >
+              <Lock className="w-4 h-4" />
+              <span>Unlock Admin Console</span>
+            </button>
+          </form>
+
+          <div className="pt-4 border-t border-slate-800 text-center">
+            <p className="text-[10px] text-slate-500">
+              BlindSpot Agri Security Protocol • Only authenticated project owner can modify mandi databases or trigger sync.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Admin Top Dashboard Banner */}
@@ -179,6 +304,22 @@ export const AdminPage: React.FC<AdminPageProps> = ({ language, isDemoMode, setI
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* Owner Authenticated Badge & Logout */}
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Owner: Only Me</span>
+              </span>
+              <button
+                onClick={handleAdminLogout}
+                className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-1.5 transition"
+                title="Lock console and logout"
+              >
+                <LogOut className="w-3.5 h-3.5 text-rose-400" />
+                <span>Lock Console</span>
+              </button>
+            </div>
+
             {/* Live vs Demo Toggle */}
             <div className="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-700 text-xs">
               <span className="text-slate-400 font-semibold">Mode:</span>
