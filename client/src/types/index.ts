@@ -90,11 +90,19 @@ export interface ScanResult {
   id: string;
   crop: string;
   cropTe: string;
+  problemCategory?: string;
+  problemCategoryTe?: string;
   possibleDisease: string;
   possibleDiseaseTe: string;
   severity: 'Low' | 'Medium' | 'High';
   confidence: number;
   affectedRegion: string;
+  rootCause?: string;
+  rootCauseTe?: string;
+  yieldRisk?: string;
+  yieldRiskTe?: string;
+  treatmentCostEst?: string;
+  treatmentCostEstTe?: string;
   boundingBoxes: Array<{
     label: string;
     ymin: number;
@@ -105,6 +113,28 @@ export interface ScanResult {
   }>;
   visibleSymptoms: string[];
   visibleSymptomsTe: string[];
+  solutions?: {
+    immediateChemical?: Array<{
+      name: string;
+      nameTe?: string;
+      dosage: string;
+      dosageTe?: string;
+      timing?: string;
+      timingTe?: string;
+      action?: string;
+    }>;
+    organicBio?: Array<{
+      name: string;
+      nameTe?: string;
+      dosage: string;
+      dosageTe?: string;
+      method?: string;
+    }>;
+    culturalAgronomic?: string[];
+    culturalAgronomicTe?: string[];
+    soilNutritionRecovery?: string[];
+    soilNutritionRecoveryTe?: string[];
+  };
   recommendedSteps: string[];
   recommendedStepsTe: string[];
   prevention: string;
