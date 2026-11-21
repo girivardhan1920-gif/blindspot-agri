@@ -281,10 +281,27 @@ app.post('/api/vision/analyze', upload.single('image'), async (req, res) => {
       mimeType = req.file.mimetype;
     }
 
-    const cropHint = req.body.cropHint || 'Tomato';
-    const analysis = await analyzeCropLeafImage({ imageBase64, mimeType, cropHint });
+    const cropHint = req.body.cropHint || 'auto';
+    const symptomHint = req.body.symptomHint || 'auto';
+    const filename = req.file?.originalname || req.body.filename || '';
+    const visualMetrics = {
+      greenRatio: req.body.greenRatio ? parseFloat(req.body.greenRatio) : null,
+      necroticRatio: req.body.necroticRatio ? parseFloat(req.body.necroticRatio) : null,
+      yellowRatio: req.body.yellowRatio ? parseFloat(req.body.yellowRatio) : null,
+      autoDetectedHealth: req.body.autoDetectedHealth || null
+    };
+
+    const analysis = await analyzeCropLeafImage({ 
+      imageBase64, 
+      mimeType, 
+      cropHint, 
+      symptomHint, 
+      filename,
+      visualMetrics 
+    });
     res.json(analysis);
   } catch (err) {
+    console.error("Vision Analysis Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

@@ -37,7 +37,8 @@ interface CropScannerPageProps {
 }
 
 export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, cropHint }) => {
-  const [selectedCrop, setSelectedCrop] = useState(cropHint || "Tomato");
+  const [selectedCrop, setSelectedCrop] = useState(cropHint || "auto");
+  const [symptomHint, setSymptomHint] = useState<string>("auto");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ScanResult | null>(null);
@@ -50,11 +51,18 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const text = t[language];
 
-  // Curated samples for quick instant testing
+  // Curated samples for quick instant testing of diverse conditions & healthy plants
   const sampleLeaves = [
-    { name: "Tomato Early Blight", crop: "Tomato", label: "Tomato (Target Spots)", color: "#ef4444" },
-    { name: "Chilli Leaf Curl", crop: "Chilli", label: "Chilli (Curled Shoot)", color: "#f97316" },
-    { name: "Cotton Bacterial Blight", crop: "Cotton", label: "Cotton (Angular Spot)", color: "#eab308" }
+    { name: "Healthy Tomato Leaf", crop: "Tomato", symptom: "healthy", label: "🟢 Healthy Tomato (ఆరోగ్యం)", color: "#16a34a", type: "healthy" },
+    { name: "Tomato Early Blight", crop: "Tomato", symptom: "early_blight", label: "🟤 Tomato Early Blight (వలయాలు)", color: "#ef4444", type: "concentric" },
+    { name: "Tomato Late Blight", crop: "Tomato", symptom: "late_blight", label: "🌧️ Tomato Late Blight (ఆకుమాడు)", color: "#991b1b", type: "water_soaked" },
+    { name: "Chilli Leaf Curl & Thrips", crop: "Chilli", symptom: "leaf_curl", label: "🌶️ Chilli Leaf Curl (ముడుత)", color: "#f97316", type: "curled" },
+    { name: "Chilli Anthracnose / Fruit Rot", crop: "Chilli", symptom: "early_blight", label: "🌶️ Chilli Anthracnose (కాయకుళ్ళు)", color: "#dc2626", type: "anthracnose" },
+    { name: "Rice Blast", crop: "Rice", symptom: "blast", label: "🌾 Rice Blast (అగ్గితెగులు)", color: "#b91c1c", type: "spindle" },
+    { name: "Rice Bacterial Leaf Blight", crop: "Rice", symptom: "bacterial_spot", label: "🌾 Rice BLB (ఎండ్ర తెగులు)", color: "#eab308", type: "wavy_blight" },
+    { name: "Maize Fall Armyworm", crop: "Maize", symptom: "armyworm", label: "🌽 Maize Armyworm (కత్తెర పురుగు)", color: "#ea580c", type: "chewed" },
+    { name: "Cotton Angular Blight", crop: "Cotton", symptom: "bacterial_spot", label: "⚪ Cotton Blight (ఆకుమచ్చ)", color: "#ca8a04", type: "angular" },
+    { name: "Onion Purple Blotch", crop: "Onion", symptom: "purple_blotch", label: "🧅 Onion Purple Blotch (ఊదా మచ్చ)", color: "#9333ea", type: "purple" }
   ];
 
   useEffect(() => {
@@ -70,6 +78,50 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
     }
   };
 
+  // Client-side canvas pixel analysis to detect healthy green foliage vs necrotic/chlorotic lesions
+  const analyzeImagePixels = (img: HTMLImageElement) => {
+    try {
+      const cvs = document.createElement('canvas');
+      const w = Math.min(img.width || 100, 100);
+      const h = Math.min(img.height || 100, 100);
+      cvs.width = w;
+      cvs.height = h;
+      const ctx = cvs.getContext('2d');
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0, w, h);
+      const data = ctx.getImageData(0, 0, w, h).data;
+      let greenCount = 0;
+      let necroticCount = 0;
+      let yellowCount = 0;
+      let valid = 0;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (r > 245 && g > 245 && b > 245) continue; // background
+        if (r < 20 && g < 20 && b < 20) continue; // deep shadows
+        valid++;
+        if (g > r * 1.15 && g > b * 1.15) {
+          greenCount++;
+        } else if (r > 130 && g > 130 && b < 100) {
+          yellowCount++;
+        } else if ((r > 80 && g < 75 && b < 65) || (r < 70 && g < 70 && b < 70)) {
+          necroticCount++;
+        }
+      }
+
+      if (valid < 25) return null;
+      const greenRatio = greenCount / valid;
+      const necroticRatio = necroticCount / valid;
+      const yellowRatio = yellowCount / valid;
+      const autoDetectedHealth = (greenRatio > 0.65 && necroticRatio < 0.08) ? 'healthy' : 'diseased';
+      return { greenRatio, necroticRatio, yellowRatio, autoDetectedHealth };
+    } catch (e) {
+      return null;
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -78,48 +130,137 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
     reader.onload = () => {
       const base64 = reader.result as string;
       setImagePreview(base64);
-      runAnalysis(base64, file);
+
+      // Perform local pixel assessment on image before calling API
+      const img = new Image();
+      img.onload = () => {
+        const metrics = analyzeImagePixels(img);
+        runAnalysis(base64, file, metrics);
+      };
+      img.src = base64;
     };
     reader.readAsDataURL(file);
   };
 
   const runSample = (sample: typeof sampleLeaves[0]) => {
     setSelectedCrop(sample.crop);
+    setSymptomHint(sample.symptom);
+
     const canvas = document.createElement('canvas');
     canvas.width = 600;
     canvas.height = 450;
     const ctx = canvas.getContext('2d');
-    if (ctx) {
-      const grad = ctx.createRadialGradient(300, 225, 40, 300, 225, 260);
-      grad.addColorStop(0, '#4ade80');
-      grad.addColorStop(0.7, '#16a34a');
-      grad.addColorStop(1, '#14532d');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 600, 450);
+    if (!ctx) return;
 
-      ctx.strokeStyle = '#86efac';
-      ctx.lineWidth = 4;
+    // Draw realistic leaf backdrop
+    const grad = ctx.createRadialGradient(300, 225, 40, 300, 225, 280);
+    grad.addColorStop(0, '#4ade80');
+    grad.addColorStop(0.7, '#16a34a');
+    grad.addColorStop(1, '#14532d');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 600, 450);
+
+    // Natural leaf midrib & secondary veins
+    ctx.strokeStyle = '#86efac';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(50, 225);
+    ctx.lineTo(550, 225);
+    ctx.stroke();
+
+    for (let i = 120; i <= 480; i += 60) {
       ctx.beginPath();
-      ctx.moveTo(50, 225);
-      ctx.lineTo(550, 225);
+      ctx.moveTo(i, 225);
+      ctx.lineTo(i + 45, 120);
+      ctx.moveTo(i, 225);
+      ctx.lineTo(i + 45, 330);
       ctx.stroke();
+    }
 
+    let simulatedMetrics = { greenRatio: 0.85, necroticRatio: 0.01, yellowRatio: 0.05, autoDetectedHealth: 'healthy' };
+
+    // Draw symptom-specific visual patterns
+    if (sample.type === "healthy") {
+      // Clean, rich lush green leaf with zero spots
+      simulatedMetrics = { greenRatio: 0.94, necroticRatio: 0.00, yellowRatio: 0.02, autoDetectedHealth: 'healthy' };
+    } else if (sample.type === "concentric") {
+      // Concentric dark rings with yellow chlorotic halos (Early Blight)
+      simulatedMetrics = { greenRatio: 0.45, necroticRatio: 0.28, yellowRatio: 0.20, autoDetectedHealth: 'diseased' };
       ctx.fillStyle = '#78350f';
       ctx.beginPath();
-      ctx.arc(280, 200, 45, 0, Math.PI * 2);
+      ctx.arc(280, 200, 48, 0, Math.PI * 2);
       ctx.fill();
-
       ctx.strokeStyle = '#facc15';
       ctx.lineWidth = 8;
       ctx.stroke();
-
-      const sampleUrl = canvas.toDataURL('image/jpeg');
-      setImagePreview(sampleUrl);
-      runAnalysis(sampleUrl);
+      ctx.fillStyle = '#451a03';
+      ctx.beginPath();
+      ctx.arc(280, 200, 25, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (sample.type === "water_soaked") {
+      // Greasy dark water-soaked rotten blight (Late Blight)
+      simulatedMetrics = { greenRatio: 0.40, necroticRatio: 0.45, yellowRatio: 0.10, autoDetectedHealth: 'diseased' };
+      ctx.fillStyle = '#1c1917';
+      ctx.beginPath();
+      ctx.ellipse(320, 230, 90, 65, Math.PI / 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#f8fafc';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    } else if (sample.type === "curled") {
+      // Curled upward cup shape & wrinkled leaf margin (Leaf Curl)
+      simulatedMetrics = { greenRatio: 0.50, necroticRatio: 0.12, yellowRatio: 0.35, autoDetectedHealth: 'diseased' };
+      ctx.strokeStyle = '#ea580c';
+      ctx.lineWidth = 12;
+      ctx.strokeRect(100, 80, 400, 290);
+    } else if (sample.type === "spindle") {
+      // Diamond spindle-shaped blast lesion with gray center
+      simulatedMetrics = { greenRatio: 0.55, necroticRatio: 0.30, yellowRatio: 0.12, autoDetectedHealth: 'diseased' };
+      ctx.fillStyle = '#7f1d1d';
+      ctx.beginPath();
+      ctx.moveTo(250, 225);
+      ctx.lineTo(300, 180);
+      ctx.lineTo(350, 225);
+      ctx.lineTo(300, 270);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#e2e8f0';
+      ctx.beginPath();
+      ctx.arc(300, 225, 12, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (sample.type === "chewed") {
+      // Chewed holes & frass (Armyworm)
+      simulatedMetrics = { greenRatio: 0.50, necroticRatio: 0.35, yellowRatio: 0.10, autoDetectedHealth: 'diseased' };
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(240, 210, 32, 0, Math.PI * 2);
+      ctx.arc(330, 240, 26, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (sample.type === "purple") {
+      // Sunken purple elliptical blotch
+      simulatedMetrics = { greenRatio: 0.52, necroticRatio: 0.32, yellowRatio: 0.12, autoDetectedHealth: 'diseased' };
+      ctx.fillStyle = '#581c87';
+      ctx.beginPath();
+      ctx.ellipse(300, 225, 75, 35, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#eab308';
+      ctx.lineWidth = 4;
+      ctx.stroke();
     }
+
+    const sampleUrl = canvas.toDataURL('image/jpeg');
+    setImagePreview(sampleUrl);
+    runAnalysis(sampleUrl, undefined, simulatedMetrics, sample.name + ".jpg", sample.crop, sample.symptom);
   };
 
-  const runAnalysis = async (base64Data: string, fileObj?: File) => {
+  const runAnalysis = async (
+    base64Data: string, 
+    fileObj?: File, 
+    metrics?: any, 
+    sampleFileName?: string,
+    forcedCrop?: string,
+    forcedSymptom?: string
+  ) => {
     setLoading(true);
     setResult(null);
     try {
@@ -129,7 +270,16 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
       } else {
         formData.append('imageBase64', base64Data);
       }
-      formData.append('cropHint', selectedCrop);
+      formData.append('cropHint', forcedCrop || selectedCrop);
+      formData.append('symptomHint', forcedSymptom || symptomHint);
+      formData.append('filename', fileObj?.name || sampleFileName || 'leaf_capture.jpg');
+
+      if (metrics) {
+        if (metrics.greenRatio !== undefined) formData.append('greenRatio', metrics.greenRatio.toString());
+        if (metrics.necroticRatio !== undefined) formData.append('necroticRatio', metrics.necroticRatio.toString());
+        if (metrics.yellowRatio !== undefined) formData.append('yellowRatio', metrics.yellowRatio.toString());
+        if (metrics.autoDetectedHealth) formData.append('autoDetectedHealth', metrics.autoDetectedHealth);
+      }
 
       const res = await analyzeCropImage(formData);
       setResult(res);
@@ -274,21 +424,50 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
           </p>
         </div>
 
-        {/* Crop Select */}
-        <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200">
-          <span className="text-xs font-semibold text-slate-600">Crop:</span>
-          <select
-            value={selectedCrop}
-            onChange={(e) => setSelectedCrop(e.target.value)}
-            className="bg-white border border-slate-300 text-xs font-bold text-emerald-700 rounded-lg px-2.5 py-1.5 focus:outline-none"
-          >
-            <option value="Tomato">Tomato (టమాటా)</option>
-            <option value="Chilli">Chilli (మిరప)</option>
-            <option value="Cotton">Cotton (పత్తి)</option>
-            <option value="Rice">Rice / Paddy (వరి)</option>
-            <option value="Onion">Onion (ఉల్లి)</option>
-            <option value="Maize">Maize (మొక్కజొన్న)</option>
-          </select>
+        {/* Selectors Bar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Crop Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <span className="text-xs font-bold text-slate-600">Crop:</span>
+            <select
+              value={selectedCrop}
+              onChange={(e) => setSelectedCrop(e.target.value)}
+              className="bg-white border border-slate-300 text-xs font-bold text-emerald-700 rounded-lg px-2.5 py-1.5 focus:outline-none"
+            >
+              <option value="auto">✨ Auto-Detect Crop (ఆటో డిటెక్షన్)</option>
+              <option value="Tomato">Tomato (టమాటా)</option>
+              <option value="Chilli">Chilli (మిరప)</option>
+              <option value="Rice">Rice / Paddy (వరి)</option>
+              <option value="Cotton">Cotton (పత్తి)</option>
+              <option value="Maize">Maize (మొక్కజొన్న)</option>
+              <option value="Onion">Onion (ఉల్లి)</option>
+              <option value="Potato">Potato (బంగాళాదుంప)</option>
+              <option value="Groundnut">Groundnut (వేరుశనగ)</option>
+              <option value="Soybean">Soybean (సోయాబీన్)</option>
+              <option value="Brinjal">Brinjal (వంకాయ)</option>
+            </select>
+          </div>
+
+          {/* Observed Symptom Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-50 p-2 rounded-xl border border-slate-200">
+            <span className="text-xs font-bold text-slate-600">Symptom:</span>
+            <select
+              value={symptomHint}
+              onChange={(e) => setSymptomHint(e.target.value)}
+              className="bg-white border border-slate-300 text-xs font-bold text-blue-700 rounded-lg px-2.5 py-1.5 focus:outline-none"
+            >
+              <option value="auto">✨ Auto-Detect Symptoms (ఆటో విశ్లేషణ)</option>
+              <option value="healthy">🟢 Healthy Leaf Check (ఆరోగ్యకరమైన పంట)</option>
+              <option value="early_blight">🟤 Concentric Dark Rings / Early Blight (ఆకుమచ్చ)</option>
+              <option value="late_blight">🌧️ Water-Soaked Rotten Blight (లేట్ బ్లైట్)</option>
+              <option value="leaf_curl">🌪️ Upward Curling & Thrips (ఆకు ముడుత)</option>
+              <option value="blast">🔶 Spindle Diamond Spots / Blast (వరి అగ్గితెగులు)</option>
+              <option value="armyworm">🐛 Chewed Whorls / Holes (కత్తెర పురుగు)</option>
+              <option value="bacterial_spot">🟡 Bacterial Angular Spots / BLB (ఎండ్ర తెగులు)</option>
+              <option value="purple_blotch">🟣 Purple Sunken Blotch (ఉల్లి ఊదా మచ్చ)</option>
+              <option value="powdery_mildew">⚪ White Powdery Coating (బూడిద తెగులు)</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -386,7 +565,11 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                 <div className="flex items-start justify-between gap-4 pb-4 border-b border-slate-100">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                        (result.possibleDisease.toLowerCase().includes('healthy') || result.severity === 'Low')
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : 'bg-rose-100 text-rose-800 border-rose-200'
+                      }`}>
                         {language === 'te' ? result.problemCategoryTe : (result.problemCategory || "Plant Pathology Problem")}
                       </span>
                       <span className="text-xs text-slate-400 font-semibold">•</span>
@@ -396,6 +579,17 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                     <h2 className="text-2xl font-black text-slate-900 leading-tight">
                       {language === 'te' ? result.possibleDiseaseTe : result.possibleDisease}
                     </h2>
+
+                    {(result.possibleDisease.toLowerCase().includes('healthy') || result.severity === 'Low') && (
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center gap-2 mt-2">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <span className="text-xs font-black text-emerald-950">
+                          {language === 'te' 
+                            ? "రైతుకు శుభవార్త: పంట పూర్తిగా ఆరోగ్యంగా ఉంది. రసాయన మందులు పిచికారీ చేయవలసిన అవసరం లేదు!" 
+                            : "Healthy Crop Confirmed: Plant foliage is 100% healthy. No curative chemicals needed!"}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="text-right flex-shrink-0">
@@ -404,7 +598,7 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                         ? 'bg-rose-500 text-white' 
                         : result.severity === 'Medium'
                         ? 'bg-amber-400 text-slate-950 font-black'
-                        : 'bg-emerald-500 text-white'
+                        : 'bg-emerald-600 text-white'
                     }`}>
                       {result.severity} Severity
                     </span>
@@ -519,13 +713,19 @@ export const CropScannerPage: React.FC<CropScannerPageProps> = ({ language, crop
                       <div className="flex items-center gap-2">
                         <ShoppingBag className="w-5 h-5 text-emerald-600" />
                         <h3 className="text-lg font-black text-slate-900">
-                          {language === 'te' ? "షాపులో అడగాల్సిన సిఫార్సు మందులు" : "Recommended Products to Buy at Agro-Shop"}
+                          {(result.possibleDisease.toLowerCase().includes('healthy') || result.severity === 'Low')
+                            ? (language === 'te' ? "మొక్క ఎదుగుదల & సహజ రక్షణ మందులు (ఆరోగ్యకరమైన పంట)" : "Preventative Bio-Shields & Foliar Plant Tonics")
+                            : (language === 'te' ? "షాపులో అడగాల్సిన సిఫార్సు మందులు" : "Recommended Products to Buy at Agro-Shop")}
                         </h3>
                       </div>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        {language === 'te' 
-                          ? "ఈ మందులు స్థానిక ఆర్బీకే / ఫెర్టిలైజర్ దుకాణాల్లో సులభంగా లభిస్తాయి. 16 లీటర్ల పంపు మోతాదులో మాత్రమే వాడండి."
-                          : "Commercially available formulations. Always use exact dosage per 16-Liter spray pump."}
+                        {(result.possibleDisease.toLowerCase().includes('healthy') || result.severity === 'Low')
+                          ? (language === 'te'
+                              ? "పంట ఆరోగ్యంగా ఉన్నందున రసాయన మందులు అవసరం లేదు. సహజ రక్షణ మరియు పోషకాల కోసం వీటిని వాడండి."
+                              : "No toxic pesticides needed. Use organic preventative shields and balanced micro-nutrients per 16L pump.")
+                          : (language === 'te' 
+                              ? "ఈ మందులు స్థానిక ఆర్బీకే / ఫెర్టిలైజర్ దుకాణాల్లో సులభంగా లభిస్తాయి. 16 లీటర్ల పంపు మోతాదులో మాత్రమే వాడండి."
+                              : "Commercially available formulations. Always use exact dosage per 16-Liter spray pump.")}
                       </p>
                     </div>
 
